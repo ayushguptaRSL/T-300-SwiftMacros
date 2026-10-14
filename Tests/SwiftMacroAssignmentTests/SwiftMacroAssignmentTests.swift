@@ -9,19 +9,37 @@ import XCTest
 import SwiftMacroAssignmentMacros
 
 let testMacros: [String: Macro.Type] = [
-    "stringify": StringifyMacro.self,
+    "GenerateCodingKeys": GenerateCodingKeysMacroImpl.self,
 ]
 #endif
 
 final class SwiftMacroAssignmentTests: XCTestCase {
-    func testMacro() throws {
+    func testStructArticle() throws {
         #if canImport(SwiftMacroAssignmentMacros)
         assertMacroExpansion(
             """
-            #stringify(a + b)
+            @GenerateCodingKeys
+            struct Article: Codable {
+                let articleId: Int
+                let articleTitle: String
+                let authorName: String
+                let publishedDate: String
+            }
             """,
             expandedSource: """
-            (a + b, "a + b")
+            struct Article: Codable {
+                let articleId: Int
+                let articleTitle: String
+                let authorName: String
+                let publishedDate: String
+
+                enum CodingKeys: String, CodingKey {
+                    case articleId = "article_id"
+                    case articleTitle = "article_title"
+                    case authorName = "author_name"
+                    case publishedDate = "published_date"
+                }
+            }
             """,
             macros: testMacros
         )
@@ -29,16 +47,58 @@ final class SwiftMacroAssignmentTests: XCTestCase {
         throw XCTSkip("macros are only supported when running tests for the host platform")
         #endif
     }
-
-    func testMacroWithStringLiteral() throws {
+    
+    func testStructComment() throws {
         #if canImport(SwiftMacroAssignmentMacros)
         assertMacroExpansion(
-            #"""
-            #stringify("Hello, \(name)")
-            """#,
-            expandedSource: #"""
-            ("Hello, \(name)", #""Hello, \(name)""#)
-            """#,
+            """
+            @GenerateCodingKeys
+            struct Comment: Codable {
+                let commentId: Int
+                let articleId: Int
+                let commenterName: String
+                let createdAt: String
+            }
+            """,
+            expandedSource: """
+            struct Comment: Codable {
+                let commentId: Int
+                let articleId: Int
+                let commenterName: String
+                let createdAt: String
+            
+                enum CodingKeys: String, CodingKey {
+                    case commentId = "comment_id"
+                    case articleId = "article_id"
+                    case commenterName = "commenter_name"
+                    case createdAt = "created_at"
+                }
+            }
+            """,
+            macros: testMacros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+    
+    func testErrorOnEnum() throws {
+        #if canImport(SwiftMacroAssignmentMacros)
+        assertMacroExpansion(
+            """
+            @GenerateCodingKeys
+            enum Ayush {
+                case ayush1
+            }
+            """,
+            expandedSource: """
+            enum Ayush {
+                case ayush1
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(message: "Only support the struct", line: 1, column: 1)
+            ],
             macros: testMacros
         )
         #else
